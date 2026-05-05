@@ -11,6 +11,8 @@
 (function () {
   'use strict';
 
+  const SOURCE = 'khan';
+  const HOST_MATCH = 'khanacademy.org';
   const WORKER_URL = 'https://khan-bridge.nuttarong1976.workers.dev';
   const SHARED_SECRET = '81e0006fed34ce0d08f1cbdc4415b70705739a5968b045843f2e47141572023d';
   const PENDING_KEY = 'ka-bridge-pending';
@@ -42,7 +44,7 @@
   };
 
   const enqueue = (entry) => {
-    pending.push({ ...entry, ts: Date.now() });
+    pending.push({ source: SOURCE, ...entry, ts: Date.now() });
     persistPending();
     updateBadge();
     if (pending.length >= FLUSH_AFTER_N) flush();
@@ -51,8 +53,8 @@
   const origFetch = window.fetch;
   window.fetch = async function (input, init) {
     const url = typeof input === 'string' ? input : input?.url || '';
-    const isKA = url.includes('khanacademy.org');
-    if (!isKA) return origFetch.apply(this, arguments);
+    const isTarget = url.includes(HOST_MATCH);
+    if (!isTarget) return origFetch.apply(this, arguments);
 
     const method = (init && init.method) || (typeof input !== 'string' && input?.method) || 'GET';
     const reqBody = init && init.body ? truncate(init.body, MAX_REQ_BODY) : null;
@@ -80,7 +82,7 @@
     xhr.send = function (body) {
       _reqBody = body ? truncate(body, MAX_REQ_BODY) : null;
       xhr.addEventListener('loadend', () => {
-        if (!_url.includes('khanacademy.org')) return;
+        if (!_url.includes(HOST_MATCH)) return;
         let respBody = null;
         try { respBody = truncate(xhr.responseText, MAX_RESP_BODY); } catch {}
         enqueue({ type: 'xhr', url: _url, method: _method, reqBody: _reqBody, respBody, status: xhr.status });
